@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"open\\(r''c:/Users/vinic/OneDrive/Desktop/SIA/sia/src/app/page.tsx''\\).read\\(\\)\")",
+      "Bash(ls \"c:\\\\Users\\\\vinic\\\\OneDrive\\\\Desktop\\\\SIA\\\\sia\\\\src\\\\app\\\\\\(auth\\)\")",
+      "Bash(ls \"c:\\\\Users\\\\vinic\\\\OneDrive\\\\Desktop\\\\SIA\\\\sia\\\\src\\\\app\\\\\\(auth\\)\\\\login\")",
+      "Bash(npm install @supabase/supabase-js)",
+      "Bash(curl -s \"https://ryunukvapablhewsjmwb.supabase.co/rest/v1/\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dW51a3ZhcGFibGhld3NqbXdiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyMTY1NTQ1OSwiZXhwIjoyMDM3MjMxNDU5fQ.vB9HaAlcsidn2wlXJ62SOAllQKGBZRq1jOSHt5S7Z18\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dW51a3ZhcGFibGhld3NqbXdiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyMTY1NTQ1OSwiZXhwIjoyMDM3MjMxNDU5fQ.vB9HaAlcsidn2wlXJ62SOAllQKGBZRq1jOSHt5S7Z18\")"
+    ]
+  }
+}
