@@ -89,7 +89,7 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-white text-[28px] font-bold leading-tight tracking-tight mb-2">Setorização</h1>
-          <p className="text-slate-400 text-sm font-normal text-center mb-8">Gestão Comunitária</p>
+          <p className="text-slate-400 text-sm font-normal text-center mb-8">Gestão de Membros</p>
 
           <form className="w-full space-y-5" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-2">
