@@ -1,22 +1,31 @@
 "use client"
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
-    try {
-      // Placeholder: integrate with Supabase / server action to send reset email
-      console.log('Enviar instruções para', email)
-      // simulate
-      await new Promise((r) => setTimeout(r, 700))
-    } finally {
-      setSubmitting(false)
+    setError('')
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/update-password`,
+    })
+
+    setSubmitting(false)
+
+    if (error) {
+      setError('Não foi possível enviar o e-mail. Verifique o endereço e tente novamente.')
+      return
     }
+
+    setSent(true)
   }
 
   return (
@@ -35,8 +44,8 @@ export default function ResetPasswordPage() {
               </Link>
             </div>
 
-            <div className="bg-primary/20 p-4 rounded-full mb-6">
-              <span suppressHydrationWarning className="material-symbols-outlined text-white text-4xl" style={{ fontVariationSettings: `"FILL" 1` }}>lock</span>
+            <div className="w-14 h-14 bg-[#197fe6] rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-[#197fe6]/30">
+              <span suppressHydrationWarning className="material-symbols-outlined text-white text-3xl">hub</span>
             </div>
 
             <h1 className="text-2xl font-bold text-white mb-2">Recuperar Senha</h1>
@@ -45,10 +54,28 @@ export default function ResetPasswordPage() {
             </p>
           </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-1">E-mail</label>
-              <div className="relative">
+          {sent ? (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                <span suppressHydrationWarning className="material-symbols-outlined text-emerald-400 text-3xl" style={{ fontVariationSettings: `"FILL" 1` }}>
+                  mark_email_read
+                </span>
+              </div>
+              <p className="text-white font-semibold text-center">E-mail enviado!</p>
+              <p className="text-slate-400 text-sm text-center leading-relaxed">
+                Verifique sua caixa de entrada em <span className="text-white font-medium">{email}</span> e siga as instruções para redefinir sua senha.
+              </p>
+              <Link
+                href="/login"
+                className="mt-4 w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold h-12 rounded-lg transition-all flex items-center justify-center text-sm"
+              >
+                Voltar ao login
+              </Link>
+            </div>
+          ) : (
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-1">E-mail</label>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -58,23 +85,36 @@ export default function ResetPasswordPage() {
                   required
                 />
               </div>
+
+              {error && (
+                <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-gradient-to-r from-primary to-accent-blue hover:opacity-90 disabled:opacity-60 text-white font-bold h-14 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+              >
+                {submitting && (
+                  <span suppressHydrationWarning className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                )}
+                <span>{submitting ? 'Enviando...' : 'Enviar instruções'}</span>
+              </button>
+            </form>
+          )}
+
+          {!sent && (
+            <div className="mt-8 text-center">
+              <p className="text-sm text-slate-300">
+                Lembrou a senha?{' '}
+                <Link href="/login" className="text-accent-blue font-semibold hover:underline decoration-accent-blue/50 underline-offset-4">
+                  Entrar
+                </Link>
+              </p>
             </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-gradient-to-r from-primary to-accent-blue hover:opacity-90 text-white font-bold h-14 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center justify-center"
-            >
-              <span>{submitting ? 'Enviando...' : 'Enviar instruções'}</span>
-            </button>
-          </form>
-
-          <div className="mt-8 text-center">
-            <p className="text-sm text-slate-300">
-              Lembrou a senha?{' '}
-              <Link href="/login" className="text-accent-blue font-semibold hover:underline decoration-accent-blue/50 underline-offset-4">Entrar</Link>
-            </p>
-          </div>
+          )}
         </div>
 
         <div className="mt-8 flex justify-center opacity-40">

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl -s \"https://ryunukvapablhewsjmwb.supabase.co/rest/v1/Pessoa_Perfil_View?select=*&limit=5\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dW51a3ZhcGFibGhld3NqbXdiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyMTY1NTQ1OSwiZXhwIjoyMDM3MjMxNDU5fQ.vB9HaAlcsidn2wlXJ62SOAllQKGBZRq1jOSHt5S7Z18\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dW51a3ZhcGFibGhld3NqbXdiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyMTY1NTQ1OSwiZXhwIjoyMDM3MjMxNDU5fQ.vB9HaAlcsidn2wlXJ62SOAllQKGBZRq1jOSHt5S7Z18\")"
+      "Bash(curl -s \"https://ryunukvapablhewsjmwb.supabase.co/rest/v1/Pessoa_Perfil_View?select=*&limit=5\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dW51a3ZhcGFibGhld3NqbXdiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyMTY1NTQ1OSwiZXhwIjoyMDM3MjMxNDU5fQ.vB9HaAlcsidn2wlXJ62SOAllQKGBZRq1jOSHt5S7Z18\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dW51a3ZhcGFibGhld3NqbXdiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyMTY1NTQ1OSwiZXhwIjoyMDM3MjMxNDU5fQ.vB9HaAlcsidn2wlXJ62SOAllQKGBZRq1jOSHt5S7Z18\")",
+      "Bash(npm install xlsx --save)",
+      "Bash(node -e \"require\\(''xlsx''\\); console.log\\(''ok''\\)\")"
     ]
   }
 }

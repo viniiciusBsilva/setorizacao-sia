@@ -60,6 +60,12 @@ function maskPhone(raw: string): string {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
+function maskCep(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 5) return digits
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`
+}
+
 function maskDate(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 8)
   if (digits.length <= 2) return digits
@@ -105,10 +111,22 @@ export default function EditarMembroPage() {
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
   const [codigoMembro, setCodigoMembro] = useState('')
+  const [codigoMembroOriginal, setCodigoMembroOriginal] = useState<string | null>(null)
   const [dataNasc, setDataNasc] = useState('')
   const [dataOutorga, setDataOutorga] = useState('')
   const [tipo, setTipo] = useState('Ohikari')
   const [situacao, setSituacao] = useState('ATIVO')
+
+  // Endereço
+  const [enderecoId, setEnderecoId] = useState<number | null>(null)
+  const [logradouro, setLogradouro] = useState('')
+  const [numero, setNumero] = useState('')
+  const [complemento, setComplemento] = useState('')
+  const [bairro, setBairro] = useState('')
+  const [cidade, setCidade] = useState('')
+  const [estado, setEstado] = useState('')
+  const [pais, setPais] = useState('')
+  const [cep, setCep] = useState('')
 
   // Dedicações
   const [dedicacoes, setDedicacoes] = useState<string[]>([])
@@ -135,7 +153,28 @@ export default function EditarMembroPage() {
       setNome(m.nome ?? '')
       setTelefone(maskPhone(m.telefone ?? ''))
       setCodigoMembro(m.codigo_membro ?? '')
+      setCodigoMembroOriginal(m.codigo_membro ?? null)
       setDataNasc(dbToDisplayDate(m.data_nascimento ?? ''))
+
+      // Endereço via codigo_membro
+      if (m.codigo_membro) {
+        const { data: end } = await supabase
+          .from('endereco_lar')
+          .select('*')
+          .eq('codigo_membro', m.codigo_membro)
+          .maybeSingle()
+        if (end) {
+          setEnderecoId(end.id)
+          setLogradouro(end.logradouro ?? '')
+          setNumero(end.numero ?? '')
+          setComplemento(end.complemento ?? '')
+          setBairro(end.bairro ?? '')
+          setCidade(end.cidade ?? '')
+          setEstado(end.estado ?? '')
+          setPais(end.pais ?? '')
+          setCep(end.cep ?? '')
+        }
+      }
       setDataOutorga(dbToDisplayDate(m.data_outorga ?? ''))
       setTipo(TIPO_NAME_MAP[m.tipo_id] ?? 'Ohikari')
       setSituacao(SITUACAO_NAME_MAP[m.situacao] ?? 'ATIVO')
@@ -223,8 +262,68 @@ export default function EditarMembroPage() {
       return
     }
 
+    // 1b. Se codigo_membro mudou, atualizar endereco_lar em cascata
+    const novoCodigo = codigoMembro.trim() || null
+    if (codigoMembroOriginal && codigoMembroOriginal !== novoCodigo) {
+      const { error: enderecoError } = await supabase
+        .from('endereco_lar')
+        .update({ codigo_membro: novoCodigo })
+        .eq('codigo_membro', codigoMembroOriginal)
+      if (enderecoError) {
+        setSaveError(`Erro ao atualizar endereço vinculado: ${enderecoError.message}`)
+        setSalvando(false)
+        return
+      }
+    }
+
+    // 1c. Salvar endereco_lar (upsert via id ou insert novo)
+    const codigoParaEndereco = novoCodigo
+    const hasEnderecoData = logradouro || numero || bairro || cidade || cep
+    if (hasEnderecoData && codigoParaEndereco) {
+      const enderecoPayload = {
+        logradouro: logradouro.trim() || null,
+        numero: numero.trim() || null,
+        complemento: complemento.trim() || null,
+        bairro: bairro.trim() || null,
+        cidade: cidade.trim() || null,
+        estado: estado.trim() || null,
+        pais: pais.trim() || null,
+        cep: cep.trim() || null,
+        codigo_membro: codigoParaEndereco,
+      }
+      if (enderecoId) {
+        const { error: endErr } = await supabase
+          .from('endereco_lar')
+          .update(enderecoPayload)
+          .eq('id', enderecoId)
+        if (endErr) {
+          setSaveError(`Erro ao salvar endereço: ${endErr.message}`)
+          setSalvando(false)
+          return
+        }
+      } else {
+        const { data: newEnd, error: endErr } = await supabase
+          .from('endereco_lar')
+          .insert(enderecoPayload)
+          .select('id')
+          .single()
+        if (endErr) {
+          setSaveError(`Erro ao salvar endereço: ${endErr.message}`)
+          setSalvando(false)
+          return
+        }
+        if (newEnd) setEnderecoId(newEnd.id)
+      }
+    }
+
     // 2. Sync dedicações: delete all + re-insert
-    await supabase.from('dedicacao_membro').delete().eq('id_membro', id)
+    const { error: deleteError } = await supabase.from('dedicacao_membro').delete().eq('id_membro', id)
+    if (deleteError) {
+      console.error('Erro ao remover dedicações antigas:', deleteError)
+      setSaveError(`Erro ao atualizar dedicações: ${deleteError.message}`)
+      setSalvando(false)
+      return
+    }
 
     for (const nomeDed of dedicacoes) {
       const { data: existing } = await supabase
@@ -232,21 +331,33 @@ export default function EditarMembroPage() {
         .select('id')
         .eq('nome', nomeDed)
         .limit(1)
-        .single()
+        .maybeSingle()
 
       let dedId: number | null = existing?.id ?? null
 
       if (!dedId) {
-        const { data: newDed } = await supabase
+        const { data: newDed, error: dedError } = await supabase
           .from('dedicacao')
           .insert({ nome: nomeDed })
           .select('id')
           .single()
+        if (dedError) {
+          console.error('Erro ao inserir dedicação:', dedError)
+          setSaveError(`Erro ao salvar dedicação "${nomeDed}": ${dedError.message}`)
+          setSalvando(false)
+          return
+        }
         dedId = newDed?.id ?? null
       }
 
       if (dedId) {
-        await supabase.from('dedicacao_membro').insert({ id_dedicacao: dedId, id_membro: id })
+        const { error: dmError } = await supabase.from('dedicacao_membro').insert({ id_dedicacao: dedId, id_membro: id })
+        if (dmError) {
+          console.error('Erro ao inserir dedicacao_membro:', dmError)
+          setSaveError(`Erro ao vincular dedicação "${nomeDed}": ${dmError.message}`)
+          setSalvando(false)
+          return
+        }
       }
     }
 
@@ -439,6 +550,116 @@ export default function EditarMembroPage() {
                     placeholder="DD/MM/AAAA"
                   />
                   {fieldErrors.dataOutorga && <p className="mt-1 text-xs text-red-400">{fieldErrors.dataOutorga}</p>}
+                </div>
+
+              </div>
+            </section>
+
+            {/* Endereço */}
+            <section className="glass-card rounded-2xl overflow-hidden">
+              <div className="px-6 py-5 border-b border-white/5 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#197fe6]">location_on</span>
+                <h3 className="font-bold text-lg">Endereço</h3>
+                {!codigoMembro.trim() && (
+                  <span className="ml-auto text-xs text-amber-400 font-medium">Informe o Código do Membro para vincular endereço</span>
+                )}
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+
+                <div className="col-span-2">
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Logradouro</label>
+                  <input
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#197fe6]/50 focus:ring-1 focus:ring-[#197fe6]/30 transition-all placeholder:text-slate-600 disabled:opacity-40"
+                    type="text"
+                    value={logradouro}
+                    onChange={(e) => setLogradouro(e.target.value)}
+                    placeholder="Rua, Avenida, etc."
+                    disabled={!codigoMembro.trim()}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Número</label>
+                  <input
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#197fe6]/50 focus:ring-1 focus:ring-[#197fe6]/30 transition-all placeholder:text-slate-600 disabled:opacity-40"
+                    type="text"
+                    value={numero}
+                    onChange={(e) => setNumero(e.target.value)}
+                    placeholder="Ex: 123"
+                    disabled={!codigoMembro.trim()}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Complemento</label>
+                  <input
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#197fe6]/50 focus:ring-1 focus:ring-[#197fe6]/30 transition-all placeholder:text-slate-600 disabled:opacity-40"
+                    type="text"
+                    value={complemento}
+                    onChange={(e) => setComplemento(e.target.value)}
+                    placeholder="Apto, Bloco, etc."
+                    disabled={!codigoMembro.trim()}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Bairro</label>
+                  <input
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#197fe6]/50 focus:ring-1 focus:ring-[#197fe6]/30 transition-all placeholder:text-slate-600 disabled:opacity-40"
+                    type="text"
+                    value={bairro}
+                    onChange={(e) => setBairro(e.target.value)}
+                    placeholder="Bairro"
+                    disabled={!codigoMembro.trim()}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1.5">CEP</label>
+                  <input
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#197fe6]/50 focus:ring-1 focus:ring-[#197fe6]/30 transition-all placeholder:text-slate-600 disabled:opacity-40"
+                    type="text"
+                    value={cep}
+                    onChange={(e) => setCep(maskCep(e.target.value))}
+                    placeholder="00000-000"
+                    disabled={!codigoMembro.trim()}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Cidade</label>
+                  <input
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#197fe6]/50 focus:ring-1 focus:ring-[#197fe6]/30 transition-all placeholder:text-slate-600 disabled:opacity-40"
+                    type="text"
+                    value={cidade}
+                    onChange={(e) => setCidade(e.target.value)}
+                    placeholder="Cidade"
+                    disabled={!codigoMembro.trim()}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1.5">Estado</label>
+                  <input
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#197fe6]/50 focus:ring-1 focus:ring-[#197fe6]/30 transition-all placeholder:text-slate-600 disabled:opacity-40"
+                    type="text"
+                    value={estado}
+                    onChange={(e) => setEstado(e.target.value)}
+                    placeholder="Estado"
+                    disabled={!codigoMembro.trim()}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1.5">País</label>
+                  <input
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#197fe6]/50 focus:ring-1 focus:ring-[#197fe6]/30 transition-all placeholder:text-slate-600 disabled:opacity-40"
+                    type="text"
+                    value={pais}
+                    onChange={(e) => setPais(e.target.value)}
+                    placeholder="Brasil"
+                    disabled={!codigoMembro.trim()}
+                  />
                 </div>
 
               </div>

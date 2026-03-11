@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const navItems = [
   { icon: 'dashboard', label: 'Dashboard', href: '/' },
   { icon: 'group', label: 'Membros', href: '/membros' },
-  { icon: 'home_work', label: 'Lar', href: '/lar' },
+  { icon: 'home_work', label: 'Setor', href: '/setor' },
   { icon: 'calendar_month', label: 'Eventos', href: '/eventos' },
   { icon: 'bar_chart', label: 'Relatórios', href: '/relatorios' },
   { icon: 'settings', label: 'Configurações', href: '/configuracoes' },
@@ -18,6 +18,13 @@ type UserInfo = {
   nome: string
   perfil: string
   iniciais: string
+}
+
+type SearchResult = {
+  type: 'membro' | 'setor'
+  id: number | string
+  nome: string
+  sub: string
 }
 
 export default function DashboardLayout({
@@ -31,6 +38,69 @@ export default function DashboardLayout({
   const router = useRouter()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [checking, setChecking] = useState(true)
+
+  // ── Search ──
+  const searchRef = useRef<HTMLDivElement>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+
+  // Close on outside click
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [])
+
+  // Debounced search
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (q.length < 2) {
+      setSearchResults([])
+      setSearchOpen(false)
+      return
+    }
+    setSearching(true)
+    const timer = setTimeout(async () => {
+      const [{ data: membros }, { data: setores }] = await Promise.all([
+        supabase.from('membro').select('id, nome, codigo_membro').ilike('nome', `%${q}%`).order('nome').limit(5),
+        supabase.from('setor').select('id, nome').ilike('nome', `%${q}%`).order('nome').limit(3),
+      ])
+      const results: SearchResult[] = [
+        ...(membros ?? []).map(m => ({
+          type: 'membro' as const,
+          id: m.id,
+          nome: m.nome,
+          sub: m.codigo_membro ? `Cód. ${m.codigo_membro}` : 'Membro',
+        })),
+        ...(setores ?? []).map(s => ({
+          type: 'setor' as const,
+          id: s.id,
+          nome: s.nome,
+          sub: 'Setor',
+        })),
+      ]
+      setSearchResults(results)
+      setSearchOpen(results.length > 0)
+      setSearching(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  function handleSelect(result: SearchResult) {
+    setSearchQuery('')
+    setSearchOpen(false)
+    if (result.type === 'membro') {
+      router.push(`/membros/${result.id}`)
+    } else {
+      router.push('/setor')
+    }
+  }
 
   useEffect(() => {
     async function loadUser() {
@@ -114,7 +184,6 @@ export default function DashboardLayout({
           </div>
           <div>
             <h1 className="font-bold text-lg leading-tight">Setorização</h1>
-            <p className="text-xs text-slate-400 font-medium">Gestão Comunitária</p>
           </div>
         </div>
 
@@ -166,15 +235,45 @@ export default function DashboardLayout({
         <header className="h-20 flex items-center justify-between px-8 border-b border-white/5 sticky top-0 bg-[#0a0f14]/50 backdrop-blur-md z-10">
           <h2 className="text-xl font-bold tracking-tight">{title}</h2>
           <div className="flex items-center gap-6">
-            <div className="relative hidden md:block">
+            <div ref={searchRef} className="relative hidden md:block">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xl">
-                search
+                {searching ? 'progress_activity' : 'search'}
               </span>
               <input
-                className="bg-white/5 border-none rounded-xl pl-10 pr-4 py-2 w-64 text-sm outline-none text-slate-100 placeholder:text-slate-500"
+                className="bg-white/5 border-none rounded-xl pl-10 pr-4 py-2 w-64 text-sm outline-none text-slate-100 placeholder:text-slate-500 focus:bg-white/8 transition-colors"
                 placeholder="Buscar membros, setores..."
                 type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
+                onKeyDown={e => e.key === 'Escape' && setSearchOpen(false)}
               />
+              {searchOpen && searchResults.length > 0 && (
+                <div className="absolute top-full mt-2 left-0 w-80 glass-card rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50">
+                  {searchResults.map((r, i) => (
+                    <button
+                      key={i}
+                      onMouseDown={() => handleSelect(r)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors text-left"
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        r.type === 'membro'
+                          ? 'bg-[#197fe6]/15 text-[#197fe6]'
+                          : 'bg-amber-500/15 text-amber-400'
+                      }`}>
+                        <span className="material-symbols-outlined text-base">
+                          {r.type === 'membro' ? 'person' : 'location_city'}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-100 truncate">{r.nome}</p>
+                        <p className="text-xs text-slate-500">{r.sub}</p>
+                      </div>
+                      <span className="material-symbols-outlined text-slate-600 text-base">chevron_right</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 relative hover:bg-white/10 transition-colors">

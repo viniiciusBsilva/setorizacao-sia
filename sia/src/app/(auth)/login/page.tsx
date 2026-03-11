@@ -84,12 +84,12 @@ export default function LoginPage() {
 
       <main className="relative z-10 w-full max-w-[420px] px-6">
         <div className="glass-card rounded-xl p-8 flex flex-col items-center shadow-2xl">
-          <div className="w-16 h-16 bg-primary/20 rounded-xl flex items-center justify-center mb-6 border border-primary/30">
-            <span suppressHydrationWarning className="material-symbols-outlined text-primary text-4xl">corporate_fare</span>
+          <div className="w-14 h-14 bg-[#197fe6] rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-[#197fe6]/30">
+            <span suppressHydrationWarning className="material-symbols-outlined text-white text-3xl">hub</span>
           </div>
 
           <h1 className="text-white text-[28px] font-bold leading-tight tracking-tight mb-2">Setorização</h1>
-          <p className="text-slate-400 text-sm font-normal text-center mb-8">Corporate religious management platform</p>
+          <p className="text-slate-400 text-sm font-normal text-center mb-8">Gestão Comunitária</p>
 
           <form className="w-full space-y-5" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-2">
@@ -177,11 +177,6 @@ export default function LoginPage() {
         </footer>
       </main>
 
-      <div className="absolute top-10 right-10 hidden lg:block opacity-20 pointer-events-none">
-        <div className="w-32 h-32 glass-card rounded-full flex items-center justify-center">
-          <span suppressHydrationWarning className="material-symbols-outlined text-white text-5xl">language</span>
-        </div>
-      </div>
     </div>
   )
 }

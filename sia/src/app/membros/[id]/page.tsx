@@ -112,6 +112,9 @@ export default function MembroDetalhesPage() {
   const [dedicacoes, setDedicacoes] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [modalExcluir, setModalExcluir] = useState(false)
+  const [excluindo, setExcluindo] = useState(false)
+  const [erroExcluir, setErroExcluir] = useState('')
 
   useEffect(() => {
     if (!id) return
@@ -184,13 +187,42 @@ export default function MembroDetalhesPage() {
           <div className="text-center space-y-4">
             <span className="material-symbols-outlined text-6xl text-slate-600 block">person_off</span>
             <p className="text-slate-400 text-lg font-semibold">Membro não encontrado</p>
-            <button onClick={() => router.back()} className="px-6 py-2.5 glass-card rounded-lg text-sm font-semibold hover:bg-white/10 transition-colors">
+            <button onClick={() => router.push('/membros')} className="px-6 py-2.5 glass-card rounded-lg text-sm font-semibold hover:bg-white/10 transition-colors">
               Voltar
             </button>
           </div>
         </div>
       </DashboardLayout>
     )
+  }
+
+  async function handleExcluir() {
+    setExcluindo(true)
+    setErroExcluir('')
+
+    const { error: delDedError } = await supabase
+      .from('dedicacao_membro')
+      .delete()
+      .eq('id_membro', id)
+
+    if (delDedError) {
+      setErroExcluir('Erro ao remover dedicações do membro.')
+      setExcluindo(false)
+      return
+    }
+
+    const { error: delMembroError } = await supabase
+      .from('membro')
+      .delete()
+      .eq('id', id)
+
+    if (delMembroError) {
+      setErroExcluir('Erro ao excluir o membro.')
+      setExcluindo(false)
+      return
+    }
+
+    router.push('/membros')
   }
 
   const av = getAvatarColor(membro.nome_membro)
@@ -205,7 +237,7 @@ export default function MembroDetalhesPage() {
         {/* Breadcrumb / Actions */}
         <div className="flex items-center justify-between">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push('/membros')}
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium"
           >
             <span className="material-symbols-outlined text-xl">arrow_back</span>
@@ -351,23 +383,12 @@ export default function MembroDetalhesPage() {
                 </div>
                 <button className="text-xs text-[#197fe6] font-bold hover:underline">Ver completo</button>
               </div>
-              <div className="divide-y divide-white/5">
-                {[
-                  { icon: 'event_available', color: 'text-blue-400 bg-blue-500/10', titulo: 'Conferência Regional de Líderes', data: '24 Março, 2024 • Participante' },
-                  { icon: 'volunteer_activism', color: 'text-purple-400 bg-purple-500/10', titulo: 'Ação Comunitária — Setor', data: '12 Fevereiro, 2024 • Apoio' },
-                  { icon: 'school', color: 'text-emerald-400 bg-emerald-500/10', titulo: 'Workshop de Boas Vindas', data: '05 Janeiro, 2024 • Participante' },
-                ].map((ev) => (
-                  <div key={ev.titulo} className="p-4 flex items-center gap-4 hover:bg-white/5 transition-colors group">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${ev.color} group-hover:scale-110 transition-transform shrink-0`}>
-                      <span className="material-symbols-outlined">{ev.icon}</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-sm">{ev.titulo}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{ev.data}</p>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Finalizado</span>
-                  </div>
-                ))}
+              <div className="flex flex-col items-center gap-3 py-12 px-6 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-3xl text-slate-500">history</span>
+                </div>
+                <p className="text-slate-400 text-sm font-semibold">Nenhuma atividade registrada</p>
+                <p className="text-slate-600 text-xs max-w-xs">As atividades deste membro aparecerão aqui quando forem registradas no sistema.</p>
               </div>
             </section>
           </div>
@@ -451,7 +472,72 @@ export default function MembroDetalhesPage() {
 
           </div>
         </div>
+
+        {/* Excluir Membro */}
+        <div className="flex justify-center pb-4">
+          <button
+            onClick={() => setModalExcluir(true)}
+            className="flex items-center gap-3 px-5 py-2.5 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors text-sm font-medium"
+          >
+            <span className="material-symbols-outlined text-base">delete</span>
+            Excluir Membro
+          </button>
+        </div>
+
       </div>
+
+      {/* Modal de confirmação de exclusão */}
+      {modalExcluir && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !excluindo && setModalExcluir(false)} />
+          <div className="relative glass-card rounded-2xl p-8 w-full max-w-md shadow-2xl flex flex-col items-center gap-6">
+
+            <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-3xl text-red-400">delete_forever</span>
+            </div>
+
+            <div className="text-center space-y-2">
+              <h2 className="text-xl font-bold text-white">Excluir Membro</h2>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Tem certeza que quer excluir o membro{' '}
+                <span className="text-white font-semibold">{membro.nome_membro}</span>?
+                <br />
+                <span className="text-red-400 text-xs">Esta ação não pode ser desfeita.</span>
+              </p>
+            </div>
+
+            {erroExcluir && (
+              <p className="text-red-400 text-sm text-center">{erroExcluir}</p>
+            )}
+
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => setModalExcluir(false)}
+                disabled={excluindo}
+                className="flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold glass-card hover:bg-white/10 transition-colors disabled:opacity-50"
+              >
+                Não
+              </button>
+              <button
+                onClick={handleExcluir}
+                disabled={excluindo}
+                className="flex-1 px-5 py-2.5 rounded-xl text-sm font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {excluindo ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                    Excluindo...
+                  </>
+                ) : (
+                  'Sim, excluir'
+                )}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </DashboardLayout>
   )
 }
